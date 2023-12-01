@@ -28,4 +28,4 @@ jobs:
         with:
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: rezytijo/genshin-auto-daily-check-in:latest
+          tags: rezytijo/docker-traefik-cloudflare-companion:latest
