@@ -4,13 +4,17 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/tiredofit/docker-traefik-cloudflare-companionmain.yml?branch=main&style=flat-square)](https://github.com/tiredofit/docker-traefik-cloudflare-companion.git/actions)
 [![Docker Stars](https://img.shields.io/docker/stars/tiredofit/traefik-cloudflare-companion.svg?style=flat-square&logo=docker)](https://hub.docker.com/r/tiredofit/traefik-cloudflare-companion/)
 
-## Deskripsi
-Project ini akan mem-build *Docker image* yang berfungsi untuk secara otomatis memperbarui *Cloudflare DNS records* (berupa CNAME) saat *container* baru terdeteksi berjalan, dikhususkan untuk penggunaan bersama dengan [Traefik Reverse Proxy](https://github.com/traefik/traefik). Aplikasi ini memonitor kejadian (*events*) dari Docker, Docker Swarm, maupun Traefik Polling untuk membuat pembaruan ke sisi server Cloudflare.
+Translations: **English** | [Bahasa Indonesia](docs/README.id.md) | [中文](docs/README.zh.md) | [Русский](docs/README.ru.md)
+
+---
+
+## Description
+This project builds a *Docker image* that automatically updates *Cloudflare DNS records* (CNAME) when a new container is detected running, specifically designed for use with [Traefik Reverse Proxy](https://github.com/traefik/traefik). The application monitors events from Docker, Docker Swarm, or Traefik Polling to make updates to the Cloudflare server side.
 
 ## Requirements
-- **Cloudflare Account**: Global API key atau Scoped API key aktif.
-- **Docker**: Akses ke `/var/run/docker.sock` untuk deteksi kontainer, atau klaster Docker Swarm.
-- **Traefik**: v1 atau v2 (sebagai proksi yang dideteksi labelnya).
+- **Cloudflare Account**: Active Global API key or Scoped API key.
+- **Docker**: Access to `/var/run/docker.sock` for container detection, or Docker Swarm cluster.
+- **Traefik**: v1 or v2 (as the proxy whose labels are detected).
 
 ## Quick Start
 ```bash
@@ -18,39 +22,39 @@ git clone https://github.com/tiredofit/docker-traefik-cloudflare-companion.git
 cd docker-traefik-cloudflare-companion
 cp .env.example .env
 
-# Edit .env file sesuai dengan preferensi Anda, setidaknya isikan CF_TOKEN.
+# Edit .env file to your preferences, at minimum fill in CF_TOKEN.
 nano .env
 
-# Menjalankan kontainer melalui Docker Compose
+# Run the container via Docker Compose
 docker compose up -d
 ```
 
 ## Environment Variables
-Detail konfigurasi (termasuk variabel *Docker Options*, *Cloudflare Options*, dan *Traefik Options*) dapat dilihat dengan menyalin dan merujuk ke berkas bawaan **`.env.example`** di _root directory_.
+Configuration details (including *Docker Options*, *Cloudflare Options*, and *Traefik Options*) can be found by copying and referring to the built-in **`.env.example`** file in the _root directory_.
 
 ## Project Structure
-Struktur utama dari proyek ini meliputi:
-- `docs/` : Folder dokumentasi spesifik terkait arsitektur, testing, troubleshooting, dsb.
-- `install/` : Skrip dan file konfigurasi s6-overlay serta inisiasi servis internal Docker Alpine.
-- `examples/` : Contoh penggunaan dengan `docker-compose.yml`.
-- `Dockerfile` : Blueprint pembentukan Alpine Linux container untuk script Python Cloudflare ini.
+The main structure of this project includes:
+- `docs/` : Folder for specific documentation on architecture, testing, troubleshooting, etc.
+- `install/` : s6-overlay scripts and configuration files along with internal Docker Alpine service initialization.
+- `examples/` : Usage examples with `docker-compose.yml`.
+- `Dockerfile` : Blueprint for forming an Alpine Linux container for this Python Cloudflare script.
 
-## Running Test
-Aplikasi ini dapat dilakukan pengetesan sistem tanpa risiko mengubah data Cloudflare (*dry run*):
+## Running Tests
+This application can be tested without risk of changing Cloudflare data (*dry run*):
 
 ```bash
-# Ubah pada berkas .env Anda untuk mengaktifkan:
+# Change in your .env file to enable:
 DRY_RUN=TRUE
 
-# Restarts & monitor log
+# Restart & monitor logs
 docker compose up -d
 docker compose logs -f
 ```
 
-*(Penting: Saat skrip sudah membaca routing DNS dengan benar, ingat untuk kembalikan `DRY_RUN` ke `FALSE`)*.
+*(Important: Once the script has read the DNS routing correctly, remember to set `DRY_RUN` back to `FALSE`)*.
 
 ## Documentation
-Dokumentasi detail telah dipisah untuk mencegah *noise*. Segala informasi lanjut tersedia di folder `/docs`:
+Detailed documentation has been separated to prevent noise. All further information is available in the `/docs` folder:
 - [Overview](docs/overview.md)
 - [Architecture & Discovery](docs/architecture.md)
 - [Database & State](docs/database.md)
@@ -59,5 +63,6 @@ Dokumentasi detail telah dipisah untuk mencegah *noise*. Segala informasi lanjut
 - [Testing](docs/testing.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
-## Contributor
+## Contributors
 - [Dave Conroy](http://github/tiredofit/) - *Maintainer* & *Sponsor*
+
