@@ -1,0 +1,62 @@
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.secret
+secrets/
+credentials/
+config/local.*
+
+# Dependencies
+node_modules/
+vendor/
+.venv/
+venv/
+__pycache__/
+
+# Build output
+dist/
+build/
+out/
+target/
+coverage/
+
+# Logs
+*.log
+logs/
+
+# Local dev
+.DS_Store
+.idea/
+.vscode/
+*.local
+tmp/
+temp/
+
+# Test artifacts
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+coverage/
+*.test-output.*
+*.spec-output.*
+
+# Graphify / generated diagrams
+graphify/
+.graphify/
+*.graph.json
+*.graph.svg
+*.graph.html
+graphify-out/
+
+# Database local
+*.sqlite
+*.sqlite3
+*.db
+local.db
+dev.db
+test.db
