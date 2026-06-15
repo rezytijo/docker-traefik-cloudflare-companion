@@ -1,3 +1,14 @@
+## 7.4.1 2026-06-16 <rezytijo@github>
+
+   ### Added
+      - Add `REMOVE_ON_STOP` feature to automatically delete DNS records when containers are stopped or services are removed.
+      - Add multilingual README support (Indonesian, Chinese, Russian) located in the `docs/` directory.
+
+   ### Changed
+      - Fix Docker Polling event loop filtering and status conflicts.
+      - Fix `Resource ID was not provided` error in event loop by validating container ID before retrieval.
+
+
 ## 7.4.0 2025-04-30 <GuyKh@github>
 
    ### Added
