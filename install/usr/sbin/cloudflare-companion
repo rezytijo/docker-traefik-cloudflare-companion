@@ -27,6 +27,7 @@ LOGFILE = os.environ.get('LOG_PATH', "/logs") + '/' + os.environ.get('LOG_FILE',
 LOG_LEVEL = os.environ.get('LOG_LEVEL', "INFO")
 LOG_TYPE = os.environ.get('LOG_TYPE', "BOTH")
 REFRESH_ENTRIES = os.environ.get('REFRESH_ENTRIES', "FALSE")
+REMOVE_ON_STOP = os.environ.get('REMOVE_ON_STOP', "FALSE")
 if 'TRAEFIK_FILTER' in os.environ:
     TRAEFIK_FILTER = os.environ.get('TRAEFIK_FILTER')
 TRAEFIK_FILTER_LABEL = os.environ.get('TRAEFIK_FILTER_LABEL', "traefik.constraint")
@@ -202,6 +203,35 @@ def point_domain(name, domain_infos):
                                 logger.info("Updated existing record: %s to point to %s", name, domain_info['target_domain'])
                         else:
                             logger.info("Existing record: %s already points to %s", name, domain_info['target_domain'])
+            except CloudflareAPIError as ex:
+                logger.error('** %s - %d %s' % (name, ex, ex))
+                ok = False
+                pass
+    return ok
+
+def remove_domain(name, domain_infos):
+    ok = True
+    for domain_info in domain_infos:
+        if name == domain_info['target_domain']:
+            continue
+
+        if name.find(domain_info['name']) >= 0:
+            if is_domain_excluded(name, domain_info):
+                continue
+
+            try:
+                records_response = cf.dns.records.list(zone_id=domain_info['zone_id'], name=name)
+                records = records_response.result
+
+                if len(records) > 0:
+                    for record in records:
+                        if DRY_RUN:
+                            logger.info("DRY-RUN: DELETE from Cloudflare %s, %s", domain_info['zone_id'], record.id)
+                        else:
+                            cf.dns.records.delete(zone_id=domain_info['zone_id'], dns_record_id=record.id)
+                            logger.info("Deleted record: %s", name)
+                else:
+                    logger.debug("Record %s not found in Cloudflare, nothing to delete", name)
             except CloudflareAPIError as ex:
                 logger.error('** %s - %d %s' % (name, ex, ex))
                 ok = False
@@ -484,6 +514,11 @@ if REFRESH_ENTRIES.lower() == "true":
 elif REFRESH_ENTRIES.lower() == "false":
     REFRESH_ENTRIES = False
 
+if REMOVE_ON_STOP.lower() == "true":
+    REMOVE_ON_STOP = True
+elif REMOVE_ON_STOP.lower() == "false":
+    REMOVE_ON_STOP = False
+
 if ENABLE_DOCKER_POLL.lower() == "true":
     ENABLE_DOCKER_POLL = True
 elif ENABLE_DOCKER_POLL.lower() == "false":
@@ -507,6 +542,7 @@ if DRY_RUN:
 logger.debug("Docker Polling: %s", ENABLE_DOCKER_POLL)
 logger.debug("Swarm Mode: %s", DOCKER_SWARM_MODE)
 logger.debug("Refresh Entries: %s", REFRESH_ENTRIES)
+logger.debug("Remove On Stop: %s", REMOVE_ON_STOP)
 logger.debug("Traefik Version: %s", TRAEFIK_VERSION)
 logger.debug("Default TTL: %s", DEFAULT_TTL)
 
@@ -561,36 +597,81 @@ if ENABLE_DOCKER_POLL:
     while (forever < 777):
         try:
             event_filters = {'event': ['start', 'create', 'update']}
+            if REMOVE_ON_STOP:
+                event_filters['event'].extend(['stop', 'die', 'remove'])
             for event in client.events(since=t, filters=event_filters, decode=True):
                 new_mappings = {}
                 event_type = event.get(u'Type') or event.get(u'type')
                 event_action = event.get(u'Action') or event.get(u'status') or event.get(u'action')
                 
-                if event_type == u'container' and event_action == u'start':
-                    try:
-                        container_id = event.get(u'id') or event.get(u'Actor', {}).get(u'ID')
-                        if container_id:
-                            container = client.containers.get(container_id)
-                            if TRAEFIK_VERSION == "1":
-                                add_to_mappings(new_mappings, check_container_t1(container))
-                            elif TRAEFIK_VERSION == "2":
-                                add_to_mappings(new_mappings, check_container_t2(container))
-                    except docker.errors.NotFound:
-                        pass
+                if event_type == u'container':
+                    if event_action == u'start':
+                        try:
+                            container_id = event.get(u'id') or event.get(u'Actor', {}).get(u'ID')
+                            if container_id:
+                                container = client.containers.get(container_id)
+                                if TRAEFIK_VERSION == "1":
+                                    add_to_mappings(new_mappings, check_container_t1(container))
+                                elif TRAEFIK_VERSION == "2":
+                                    add_to_mappings(new_mappings, check_container_t2(container))
+                        except docker.errors.NotFound:
+                            pass
+                    elif REMOVE_ON_STOP and event_action in [u'stop', u'die']:
+                        try:
+                            container_id = event.get(u'id') or event.get(u'Actor', {}).get(u'ID')
+                            if container_id:
+                                container = client.containers.get(container_id)
+                                stop_mappings = {}
+                                if TRAEFIK_VERSION == "1":
+                                    stop_mappings = check_container_t1(container)
+                                elif TRAEFIK_VERSION == "2":
+                                    stop_mappings = check_container_t2(container)
+                                
+                                for hostname in stop_mappings:
+                                    remove_domain(hostname, doms)
+                        except docker.errors.NotFound:
+                            pass
 
-                elif DOCKER_SWARM_MODE and event_type == u'service' and event_action in [u'create', u'update']:
-                    try:
-                        service_id = event.get(u'Actor', {}).get(u'ID')
-                        if not service_id:
-                            service_id = event.get(u'id')
-                        if service_id:
-                            logger.debug("Detected %s on service: %s", event_action, service_id)
+                elif DOCKER_SWARM_MODE and event_type == u'service':
+                    if event_action in [u'create', u'update']:
+                        try:
+                            service_id = event.get(u'Actor', {}).get(u'ID')
+                            if not service_id:
+                                service_id = event.get(u'id')
+                            if service_id:
+                                logger.debug("Detected %s on service: %s", event_action, service_id)
+                                if TRAEFIK_VERSION == "1":
+                                    add_to_mappings(new_mappings, check_service_t1(service_id))
+                                elif TRAEFIK_VERSION == "2":
+                                    add_to_mappings(new_mappings, check_service_t2(service_id))
+                        except docker.errors.NotFound:
+                            pass
+                    elif REMOVE_ON_STOP and event_action == u'remove':
+                        try:
+                            attributes = event.get(u'Actor', {}).get(u'Attributes', {})
+                            stop_mappings = {}
                             if TRAEFIK_VERSION == "1":
-                                add_to_mappings(new_mappings, check_service_t1(service_id))
+                                for prop, value in attributes.items():
+                                    if re.match('traefik.*.frontend.rule', prop):
+                                        if 'Host' in value:
+                                            value = value.split("Host:")[1].strip()
+                                            if ',' in value:
+                                                for v in value.split(","):
+                                                    stop_mappings[v] = 1
+                                            else:
+                                                stop_mappings[value] = 1
                             elif TRAEFIK_VERSION == "2":
-                                add_to_mappings(new_mappings, check_service_t2(service_id))
-                    except docker.errors.NotFound:
-                        pass
+                                for prop, value in attributes.items():
+                                    if re.match(r'traefik.*?\.rule', prop):
+                                        if 'Host' in value:
+                                            extracted_domains = re.findall(r'\`([a-zA-Z0-9\.\-]+)\`', value)
+                                            for v in extracted_domains:
+                                                stop_mappings[v] = 1
+                            
+                            for hostname in stop_mappings:
+                                remove_domain(hostname, doms)
+                        except Exception as ex:
+                            logger.error("Error removing service DNS on remove event: %s", ex)
 
                 if new_mappings:
                     sync_mappings(new_mappings, doms)
