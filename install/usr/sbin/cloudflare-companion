@@ -568,11 +568,13 @@ if ENABLE_DOCKER_POLL:
                 
                 if event_type == u'container' and event_action == u'start':
                     try:
-                        container = client.containers.get(event.get(u'id'))
-                        if TRAEFIK_VERSION == "1":
-                            add_to_mappings(new_mappings, check_container_t1(container))
-                        elif TRAEFIK_VERSION == "2":
-                            add_to_mappings(new_mappings, check_container_t2(container))
+                        container_id = event.get(u'id') or event.get(u'Actor', {}).get(u'ID')
+                        if container_id:
+                            container = client.containers.get(container_id)
+                            if TRAEFIK_VERSION == "1":
+                                add_to_mappings(new_mappings, check_container_t1(container))
+                            elif TRAEFIK_VERSION == "2":
+                                add_to_mappings(new_mappings, check_container_t2(container))
                     except docker.errors.NotFound:
                         pass
 
